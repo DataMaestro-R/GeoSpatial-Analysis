@@ -1,171 +1,68 @@
-library(tidyverse)
-library(sf)
-library(mapdata)
-library(mapsf)
-library(readxl)
-library(rnaturalearth)
+# GEOSPATIAL ANALYSIS OF CHILD LABOR IN GHANA.
+
+pacman::p_load(tidyverse, sf, mapdata, mapsf, readxl, rnaturalearth)
+
+theme_set(theme_minimal())
+
+label_scale <- theme(plot.subtitle = element_text(size = 11, face = "bold"), 
+                     plot.caption = element_text(size = 10, face = "bold"), 
+                     axis.title = element_text(size = 15, face = "bold"), 
+                     axis.text.x = element_text(size = 15, face = "bold",
+                                                colour = "black"),
+                     axis.text.y = element_text(size = 15, face = "bold",
+                                                colour = "black"),
+                     plot.title = element_text(size = 20, face = "bold"),
+                     legend.text = element_text(size = 10, face = "bold"), 
+                     strip.text = element_text(face = "bold", size = 14), 
+                     legend.title = element_text(size = 13, face = "bold"), 
+                     legend.background = element_rect(fill = NA))
+
+custom_colors <- c("#d73027", "#f46d43", "#fdae61", "#fee08b", "#d9ef8b",
+                   "#a6d96a", "#66bd63", "#1a9850")
+
+Ghana <- st_read(choose.files())
+Ghana_1 <- st_read(choose.files())
+Ghana_2 <- st_read(choose.files())
 
 
-Ghana <- st_read("G:/GeoSpatial Stat R/Maps and SHPfiles/Shapefiles/Ghana_Shapefile_(New)/Ghana_Shapefile_(New).shp")
-Ghana
 
-ggplot() + geom_sf(data = jd, aes(fill = TOTAL)) + 
-  theme(legend.position = "none")
+Preval_Child_Labour <- read_excel(choose.files())
 
-
-preval_child_labour <- read_excel("G:/Project_Paperclip/Kelvin Dzamashi/CHILD_LABOR.xlsx", 
-                                  sheet = "preval_region")
-child_labour <- preval_child_labour %>% 
+Child_Labour <- Preval_Child_Labour %>% 
   mutate(Region = str_to_upper(Region)) %>% 
   rename(REGION = Region)
 
 
-jd <- inner_join(Ghana, child_labour, by = "REGION")
+GhanaChildLAbour <- inner_join(Ghana_1, Child_Labour, by = "REGION")
+
+GeoSpatData <- GhanaChildLAbour %>%
+  mutate(Total_per_thousand = (TOTAL / 10000) %>% round(2))
+
+Data_Centroids <- st_centroid(GeoSpatData)
+
+map_point <- ggplot() +
+  geom_sf(data = GeoSpatData, fill = "white", color = "black") +  
+  geom_sf(data = Data_Centroids, aes(size = Total_per_thousand), color = "red") +  
+  scale_size_continuous(name = "", 
+                        range = c(1, 10)) + 
+  theme(legend.position = "none")  +
+  label_scale 
+ 
 
 
-
-ghana_1 <- st_read("G:/GeoSpatial Stat R/Maps and SHPfiles/Ghana SHP files/New folder/49870dd9-693d-4511-9913-129c9c4ae2062020231-1-16cfip8.k3tx.shp")
-
-ghana_2 <- st_read("G:/GeoSpatial Stat R/Maps and SHPfiles/Ghana SHP files/New folder/Ghana Shapefile (New)/Ghana_Shapefile_(New).shp")
-
-
-
-j <- inner_join(ghana_1, child_labour, by = "REGION")
-
-ggplot() + geom_sf(data = j, aes(fill = REGION, size = TOTAL))
-
-
-
-
-
-
-data <- j %>%
-  mutate(TOTAL_proportion = TOTAL / sum(TOTAL))
-
-
-ggplot(data) +
-  geom_sf(aes(fill = TOTAL_proportion)) +
-  scale_fill_continuous(name = "Proportion of \n TOTAL", labels = scales::percent,
-                        trans = "reverse") +
-  theme_minimal() +
-  labs(title = "Child labour") + 
-  theme(legend.position = "top")
-
-
-data_centroids <- st_centroid(data)
-
- ggplot() +
-  geom_sf(data = data, fill = "white", color = "black") +  # Base map with region boundaries
-  geom_sf(data = data_centroids, aes(size = TOTAL), color = "red") +  # Points representing TOTAL
-  scale_size_continuous(name = "TOTAL", range = c(1, 10)) +  # Adjust the range as needed
-  theme_minimal() +
-  labs(title = "CHILD LABOR")
-
-
- ggplot(data) +
-  geom_sf(aes(fill = TOTAL)) +
-  geom_sf_label(aes(label = REGION), size = 2.5) +
-  scale_fill_continuous(name = "TOTAL", trans = "reverse") +
-  theme_minimal() +
-  labs(title = "CHILD LABOR") + 
-   theme(legend.position = "top")
-
-
-# Define your custom color palette
-custom_colors <- c("#d73027", "#f46d43", "#fdae61", "#fee08b", "#d9ef8b",
-                   "#a6d96a", "#66bd63", "#1a9850")
-
-# Plot the map with manually defined colors
- ggplot(data) +
-  geom_sf(aes(fill = TOTAL)) +
-  geom_sf_label(aes(label = REGION), size = 2.5) +
-  scale_fill_gradientn(name = "TOTAL", colors = custom_colors, trans = "reverse") +
-  theme_minimal() +
-  labs(title = "CHILD LABOR", y = "", x = "")  
-   
+map_fill <- ggplot(GeoSpatData) +
+  geom_sf(aes(fill = Total_per_thousand)) +
+  geom_sf_label(aes(label = REGION), size = 4) +
+  scale_fill_gradientn(name = "Frequency of \nChild Labour \nper 10,000", 
+                       colors = custom_colors, trans = "reverse") +
+  labs(, y = "", x = "") + label_scale
 
 
 library(patchwork)
 
-
-a1 + a3
-
-
-########################################################
-
-
-
-########################################################
-
-theme_set(theme_minimal())
-
-educational_background <- read_excel("G:/Project_Paperclip/Kelvin Dzamashi/CHILD_LABOR.xlsx", 
-         sheet = "educational_background") %>% janitor::clean_names() %>% 
-  mutate_if(is.character, factor)
-
-
-edu_back <- educational_background %>% 
-  pivot_longer(cols = c(never_attended, nursery, kindergarten, 
-                        primary), names_to = "educational_background", 
-               values_to = "frequency")
-
-
-
-# viz 1
-
-educational_background %>% 
-  mutate(region = fct_reorder(region, total)) %>% 
-  ggplot(
-    aes(
-      y = region, 
-      x = total,
-      fill = region
-    )
-  ) + geom_col(
-    color = "black"
-  ) +
-  scale_x_continuous(labels = scales::number) + 
-  theme(legend.position = "none")
-
-
-
-# viz 2
-
-edu_back %>% 
-  select(-total) %>% 
-  mutate(region = fct_reorder(region, frequency)) %>% 
-  ggplot(
-    aes(
-      y = region, 
-      x = frequency,
-      fill = region
-    )
-  ) + geom_col(position = "dodge", color = "black")  + 
-  facet_wrap(~educational_background, scales = "free")+
-  scale_x_continuous(labels = scales::number)+ 
-  theme(legend.position = "none")
-
-
-
-
-sex <- read_excel("G:/Project_Paperclip/Kelvin Dzamashi/CHILD_LABOR.xlsx", 
-                  sheet = "sex_region") %>% janitor::clean_names() %>% 
-  mutate_if(is.character, factor)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+map_point + 
+  map_fill +
+  plot_annotation(title = "Prevalence of Child Labor in Ghana.", 
+                  subtitle = "A Geospatial Analysis of Child Labor Across the 16 Regions of Ghana.",
+                  theme = label_scale)
+  
